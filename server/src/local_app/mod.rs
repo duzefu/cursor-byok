@@ -112,13 +112,8 @@ impl CursorHarness {
         let models = self.inner.store.models().await?;
         let configured_models = models.len();
         let enabled_models = configured_models;
+        self.restore_takeover().await?;
         let ca = self.inner.ca.state()?;
-        if self.inner.store.cursor_takeover_enabled().await?
-            && matches!(ca, CaState::Ready)
-            && self.inner.backend_addr.read().is_some()
-        {
-            self.enable().await?;
-        }
         let proxy = self.inner.proxy.lock().await;
         let proxy_url = proxy.url();
         let settings_applied = proxy_url
@@ -141,6 +136,17 @@ impl CursorHarness {
             proxy_url,
             ca_install_command: self.inner.ca.install_command(),
         })
+    }
+
+    /// Re-applies a persisted takeover so it survives restarts without the UI polling status.
+    pub async fn restore_takeover(&self) -> Result<()> {
+        if self.inner.store.cursor_takeover_enabled().await?
+            && matches!(self.inner.ca.state()?, CaState::Ready)
+            && self.inner.backend_addr.read().is_some()
+        {
+            self.enable().await?;
+        }
+        Ok(())
     }
 
     pub async fn initialize_ca(&self) -> Result<CursorHarnessStatus> {

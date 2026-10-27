@@ -142,6 +142,12 @@ impl App {
     pub async fn serve_on(self, listener: TcpListener, shutdown: CancellationToken) -> Result<()> {
         let address = listener.local_addr()?;
         self.harness.set_backend_addr(address);
+        let restore = self.harness.clone();
+        tokio::spawn(async move {
+            if let Err(error) = restore.restore_takeover().await {
+                tracing::warn!(%error, "failed to restore Cursor takeover on startup");
+            }
+        });
         tracing::info!(%address, "cursor server listening");
         let registry = self.registry;
         let harness = self.harness;
